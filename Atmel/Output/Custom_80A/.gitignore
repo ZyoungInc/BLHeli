@@ -1,0 +1,7 @@
+*
+!.gitignore
+!Custom_80A_MAIN.hex
+!Custom_80A_MAIN.eep
+!Custom_80A_MULTI.hex
+!Custom_80A_MULTI.eep
+!Custom_80A_MULTI_WITH_BOOTLOADER.hex
