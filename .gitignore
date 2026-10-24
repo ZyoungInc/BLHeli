@@ -1,3 +1,5 @@
 SiLabs/Output/
 SiLabs/BLHeli.LST
 SiLabs/MakeHex_Result.txt
+BLHeli_S SiLabs/build/
+BLHeli_S SiLabs/BLHeli_S.LST

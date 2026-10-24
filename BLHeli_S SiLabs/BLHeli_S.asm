@@ -93,7 +93,7 @@ $NOMOD51
 ; - Brushless motor control with 6 states for each electrical 360 degrees
 ; - An advance timing of 0deg has zero cross 30deg after one commutation and 30deg before the next
 ; - Timing advance in this implementation is set to 15deg nominally
-; - Motor pwm is always damped light (aka complementary pwm, regenerative braking)
+; - Stock targets use damped light; Mini BLS 8A uses low-side PWM without it
 ; Motor sequence starting from zero crossing:
 ; - Timer wait: Wt_Comm			15deg	; Time to wait from zero cross to actual commutation
 ; - Timer wait: Wt_Advance		15deg	; Time to wait for timing advance. Nominal commutation point is after this
@@ -137,6 +137,7 @@ B_X_		EQU 31	; X  X  RC CC MA MC MB X     X  X  Cp Cc Bp Bc Ap Ac    PWM fets ac
 C_X_		EQU 32	; X  X  RC CC MA MC MB X     X  X  Cp Cc Bp Bc Ap Ac    PWM fets active low, on high side.  COM fets active high
 D_X_		EQU 33	; X  X  RC CC MA MC MB X     X  X  Cc Cp Bc Bp Ac Ap    PWM fets active high, on high side. COM fets active high
 E_X_		EQU 34	; X  X  RC CC MA MB MC X     X  X  Ac Bc Cc Ap Bp Cp    PWM fets active high, on high side. COM fets active high
+MB8_		EQU 35	; Mini BLS 8A: BB10, low-side PWM only, no Damped Light
 
 ;**** **** **** **** ****
 ; Select the port mapping to use (or unselect all for use with external batch compile file)
@@ -261,6 +262,10 @@ ENDIF
 
 IF ESCNO == T_
 $include (T.inc)        ; Select pinout T
+ENDIF
+
+IF ESCNO == MB8_
+$include (MB8.inc)     ; Mini BLS 8A custom BB10 layout
 ENDIF
 
 IF ESCNO == U_
@@ -1471,6 +1476,7 @@ ELSE
 ENDIF
 	mov	Temp2, A
 IF FETON_DELAY != 0
+IF ESCNO != MB8_
 	clr	C
 	mov	A, Temp1						; Skew damping fet timing
 IF MCU_48MHZ == 0
@@ -1489,11 +1495,14 @@ ENDIF
 
 int0_int_set_pwm_damp_set:
 ENDIF
+ENDIF
 	mov	Power_Pwm_Reg_L, Temp1
 	mov	Power_Pwm_Reg_H, Temp2
 IF FETON_DELAY != 0
+IF ESCNO != MB8_
 	mov	Damp_Pwm_Reg_L, Temp3
 	mov	Damp_Pwm_Reg_H, Temp4
+ENDIF
 ENDIF
 	mov	Rcp_Timeout_Cntd, #10			; Set timeout count
 IF FETON_DELAY != 0
@@ -1601,7 +1610,9 @@ ENDIF
 
 pca_int_set_pwm:
 	Set_Power_Pwm_Regs
+IF ESCNO != MB8_
 	Set_Damp_Pwm_Regs
+ENDIF
 	mov	Current_Power_Pwm_Reg_H, Power_Pwm_Reg_H
 	Disable_COVF_Interrupt
 
@@ -3628,7 +3639,7 @@ ENDIF
 	Initialize_PCA			; Initialize PCA
 	Set_Pwm_Polarity		; Set pwm polarity
 	Enable_Power_Pwm_Module	; Enable power pwm module
-	Enable_Damp_Pwm_Module	; Enable damping pwm module
+	Enable_Damp_Pwm_Module	; Configure damping PWM (disabled for Mini BLS 8A)
 	; Enable interrupts
 IF MCU_48MHZ == 0
 	mov	IE, #21h			; Enable timer 2 interrupts and INT0 interrupts

@@ -42,7 +42,7 @@ LX51_FLAGS = PAGEWIDTH (120) PAGELENGTH (65)
 
 # set up sources
 ASM_SRC = BLHeli_S.asm
-ASM_INC = $(TARGETS:=.inc) BLHeliBootLoad.inc BLHeliPgm.inc SI_EFM8BB1_Defs.inc SI_EFM8BB2_Defs.inc
+ASM_INC = $(TARGETS:=.inc) MiniBLS8A.inc BLHeliBootLoad.inc BLHeliPgm.inc SI_EFM8BB1_Defs.inc SI_EFM8BB2_Defs.inc
 
 # check that wine/simplicity studio is available
 EXECUTABLES = $(WINE_BIN) $(AX51_BIN) $(LX51_BIN) $(OX51_BIN) 
@@ -60,6 +60,7 @@ $(OUTPUT_DIR)/$(1)_$(2)_$(3)_$(REVISION).OBJ : $(ASM_SRC) $(ASM_INC)
 	$(eval _ESC         := $(1))
 	$(eval _ESC_INT     := $(shell printf "%d" "'${_ESC}"))
 	$(eval _ESCNO       := $(shell echo $$(( $(_ESC_INT) - 65 + 1))))
+	$(if $(filter MB8,$(1)),$(eval _ESCNO := 35))
         $(eval _MCU_48MHZ   := $(subst L,0,$(subst H,1,$(2))))
 	$(eval _FETON_DELAY := $(3))
 	$(eval _LOG         := $(LOG_DIR)/$(1)_$(2)_$(3)_$(REVISION).log)

@@ -1,4 +1,9 @@
 This tree contains BLHeli code for sensorless brushless motor electronic speed control (ESC) boards.  
+
+This `mini-bls-8a` branch adds an experimental EFM8BB10F8G BLHeli_S 16.7
+target with low-side PWM and no Damped Light. See the
+[Mini BLS 8A target notes](BLHeli_S%20SiLabs/MiniBLS8A_README.md) before
+building or flashing it. It has not been verified on powered hardware.
   
 To view and use the files, click the "Clone or download" button on this page,  
 and then select "Download ZIP" to download the repository to your computer.  
