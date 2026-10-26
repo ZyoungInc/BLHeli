@@ -11,6 +11,18 @@ Digital ESC firmware for controlling brushless motors in multirotors.
 
 Bluejay aims to be an open source successor to BLHeli_S adding several improvements to ESCs with Busy Bee MCUs.
 
+## Experimental mini BB10 target
+
+This `bluejay-mini` branch adds a custom EFM8BB10F8G/QFN20 layout without
+changing the original T layout. The current candidate is
+[`CUSTOM_L_90_CMPINV_BRAKE0_WITH_BOOTLOADER.hex`](firmware/CUSTOM_L_90_CMPINV_BRAKE0_WITH_BOOTLOADER.hex):
+24 kHz PWM, comparator inversion, deadtime parameter 90 and Braking Strength
+default 0. It contains the BB10 bootloader. Build it with
+`bash tools/build_custom_l_90_cmpinv_brake0.sh`. Hardware gate timing and
+BLHeliSuite parameter writes have not been verified for this candidate.
+The default does not override an existing valid emulated-EEPROM setting.
+See [custom target notes](CUSTOM_L_50_NOTES.md) before flashing or testing.
+
 ## Current Features
 
 - Digital signal protocol: DShot 150, 300 and 600

@@ -4,6 +4,7 @@ VERSION		?= $(TAG)
 
 # Target parameters
 LAYOUTS		= A B C D E F G H I J K L M N O P Q R S T U V W Z
+CUSTOM_LAYOUTS = X Y
 MCUS			= H L
 LAYOUTS_X		= A B C
 MCUS_X		= X
@@ -21,7 +22,7 @@ OUTPUT_DIR	?= build
 HEX_DIR		?= $(OUTPUT_DIR)/hex
 
 # Path to the keil binaries
-KEIL_PATH	?= ~/.wine/drive_c/Keil_v5/C51/BIN
+KEIL_PATH	?= $(HOME)/.wine/drive_c/Keil_v5/C51/BIN
 
 # Assembler and linker binaries
 AX51_BIN	= $(KEIL_PATH)/AX51.exe
@@ -38,7 +39,7 @@ LX51_FLAGS	=
 
 # Source files
 ASM_SRC		= Bluejay.asm
-ASM_INC		= $(LAYOUTS:%=Layouts/%.inc) Layouts/Base.inc Common.inc BLHeliBootLoad.inc Silabs/SI_EFM8BB1_Defs.inc Silabs/SI_EFM8BB2_Defs.inc
+ASM_INC		= $(LAYOUTS:%=Layouts/%.inc) $(CUSTOM_LAYOUTS:%=Layouts/%.inc) Layouts/Base.inc Common.inc BLHeliBootLoad.inc Silabs/SI_EFM8BB1_Defs.inc Silabs/SI_EFM8BB2_Defs.inc
 
 # Check that wine/simplicity studio is available
 EXECUTABLES	= $(AX51_BIN) $(LX51_BIN) $(OX51_BIN)
@@ -80,8 +81,26 @@ $(OUTPUT_DIR)/$(1)_$(2)_$(3)_$(4)_$(VERSION).OBJ : $(ASM_SRC) $(ASM_INC)
 endef
 
 SINGLE_TARGET_HEX = $(HEX_DIR)/$(LAYOUT)_$(MCU)_$(DEADTIME)_$(PWM)_$(VERSION).hex
+CUSTOM_L_50_HEX = $(HEX_DIR)/CUSTOM_L_50.hex
+CUSTOM_L_200_CMPINV_HEX = $(HEX_DIR)/CUSTOM_L_200_CMPINV_WITH_BOOTLOADER.hex
+CUSTOM_L_90_CMPINV_BRAKE0_HEX = $(HEX_DIR)/CUSTOM_L_90_CMPINV_BRAKE0_WITH_BOOTLOADER.hex
 
 single_target : $(SINGLE_TARGET_HEX)
+
+# Explicit production candidate. X is the internal layout ID; the alias is
+# intentionally named for the custom BB10 board and fixed to 24kHz/50 deadtime.
+custom_l_50: $(CUSTOM_L_50_HEX)
+custom_l_200_cmpinv: $(CUSTOM_L_200_CMPINV_HEX)
+custom_l_90_cmpinv_brake0: $(CUSTOM_L_90_CMPINV_BRAKE0_HEX)
+
+$(CUSTOM_L_50_HEX): $(HEX_DIR)/X_L_50_24_$(VERSION).hex
+	cp $< $@
+
+$(CUSTOM_L_200_CMPINV_HEX): $(HEX_DIR)/Y_L_200_24_$(VERSION).hex
+	cp $< $@
+
+$(CUSTOM_L_90_CMPINV_BRAKE0_HEX): $(HEX_DIR)/Y_L_90_24_$(VERSION).hex
+	cp $< $@
 
 # Create all obj targets using macro expansion
 $(foreach _l, $(LAYOUTS), \
@@ -95,6 +114,12 @@ $(foreach _l, $(LAYOUTS_X), \
 		$(foreach _d, $(DEADTIMES), \
 			$(foreach _p, $(filter-out $(subst L,96,$(_m)), $(PWM_FREQS)), \
 				$(eval $(call MAKE_OBJ,$(_l),$(_m),$(_d),$(_p)))))))
+
+# The custom BB10 targets are intentionally not generated for BB21/BB51.
+$(foreach _l, $(CUSTOM_LAYOUTS), \
+	$(foreach _d, $(DEADTIMES) 200, \
+		$(foreach _p, 24 48, \
+			$(eval $(call MAKE_OBJ,$(_l),L,$(_d),$(_p))))))
 
 HEX_TARGETS = $(OBJS:%.OBJ=$(HEX_DIR)/%.hex)
 
@@ -139,4 +164,4 @@ clean:
 efm8load: single_target
 	$(EFM8_LOAD_BIN) -p $(EFM8_LOAD_PORT) -b $(EFM8_LOAD_BAUD) -w $(SINGLE_TARGET_HEX)
 
-.PHONY: single_target all changelog help clean efm8load check_commit
+.PHONY: single_target custom_l_50 custom_l_200_cmpinv custom_l_90_cmpinv_brake0 all changelog help clean efm8load check_commit

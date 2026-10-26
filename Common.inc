@@ -90,10 +90,10 @@ IF MCU_48MHZ < 2
 	$include (Layouts/V.inc)				; Select pinout V
 	ELSEIF ESCNO == W_
 	$include (Layouts/W.inc)				; Select pinout W
-	;ELSEIF ESCNO == X_
-	;$include (Layouts/X.inc)			; Select pinout X
-	;ELSEIF ESCNO == Y_
-	;$include (Layouts/Y.inc)			; Select pinout Y
+	ELSEIF ESCNO == X_
+	$include (Layouts/X.inc)			; Custom BB10/L QFN20 target
+	ELSEIF ESCNO == Y_
+	$include (Layouts/Y.inc)			; Same target with BB1 software CMPINV
 	ELSEIF ESCNO == Z_
 	$include (Layouts/Z.inc)				; Select pinout Z
 	ENDIF

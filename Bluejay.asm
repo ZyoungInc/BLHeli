@@ -150,17 +150,37 @@ DEFAULT_PGM_DIRECTION			EQU	1	; 1=Normal	2=Reversed	3=Bidir		4=Bidir rev
 DEFAULT_PGM_BEEP_STRENGTH		EQU	40	; 0..255 (BLHeli_S is 1..255)
 DEFAULT_PGM_BEACON_STRENGTH		EQU	80	; 0..255
 DEFAULT_PGM_BEACON_DELAY			EQU	4	; 1=1m		2=2m			3=5m			4=10m		5=Infinite
+IF ESCNO >= 24 AND ESCNO <= 25 AND MCU_48MHZ == 0
+DEFAULT_PGM_ENABLE_TEMP_PROT EQU 0       ; Custom board temp calibration is unverified
+ELSE
 DEFAULT_PGM_ENABLE_TEMP_PROT		EQU	7	; 0=Disabled	1=80C	2=90C	3=100C	4=110C	5=120C	6=130C	7=140C
+ENDIF
 
 DEFAULT_PGM_BRAKE_ON_STOP		EQU	0	; 1=Enabled	0=Disabled
 DEFAULT_PGM_LED_CONTROL			EQU	0	; Byte for LED control. 2 bits per LED, 0=Off, 1=On
 
+IF ESCNO >= 24 AND ESCNO <= 25 AND MCU_48MHZ == 0
+DEFAULT_PGM_STARTUP_POWER_MIN EQU 21     ; Provisional safer 0.21 default; verify motor start
+ELSE
 DEFAULT_PGM_STARTUP_POWER_MIN		EQU	51	; 0..255 => (1000..1125 Throttle): value * (1000 / 2047) + 1000
+ENDIF
 DEFAULT_PGM_STARTUP_BEEP			EQU	1	; 0=Short beep, 1=Melody
+IF ESCNO >= 24 AND ESCNO <= 25 AND MCU_48MHZ == 0
+DEFAULT_PGM_DITHERING EQU 0              ; Avoid old DShot-frame-rate dithering
+ELSE
 DEFAULT_PGM_DITHERING			EQU	1	; 0=Disabled, 1=Enabled
+ENDIF
 
+IF ESCNO >= 24 AND ESCNO <= 25 AND MCU_48MHZ == 0
+DEFAULT_PGM_STARTUP_POWER_MAX EQU 5      ; Provisional safer 0.21 default; verify motor start
+ELSE
 DEFAULT_PGM_STARTUP_POWER_MAX		EQU	25	; 0..255 => (1000..2000 Throttle): Maximum startup power
+ENDIF
+IF ESCNO == 25 AND MCU_48MHZ == 0
+DEFAULT_PGM_BRAKING_STRENGTH EQU 0	; Custom CMPINV target: no complementary braking by default
+ELSE
 DEFAULT_PGM_BRAKING_STRENGTH		EQU	255	; 0..255 => 0..100 % Braking
+ENDIF
 
 ;**** **** **** **** ****
 ; Temporary register definitions
@@ -1625,6 +1645,12 @@ switch_power_off:
 ;
 ;**** **** **** **** **** **** **** **** **** **** **** **** ****
 set_pwm_limit:
+	IF ESCNO >= 24 AND ESCNO <= 25 AND MCU_48MHZ == 0
+	; Keep the startup power ceiling throughout the entire initial run,
+	; including the high-RPM branch. The original code lifted it as soon as
+	; the shorter startup phase ended, before initial run was complete.
+	jb	Flag_Initial_Run_Phase, set_pwm_limit_initial_run
+	ENDIF
 	jb	Flag_High_Rpm, set_pwm_limit_high_rpm	; If high rpm, limit pwm by rpm instead
 
 ;set_pwm_limit_low_rpm:
@@ -1661,6 +1687,12 @@ set_pwm_limit:
 set_pwm_limit_low_rpm_exit:
 	mov	Pwm_Limit_By_Rpm, Temp1
 	ret
+
+	IF ESCNO >= 24 AND ESCNO <= 25 AND MCU_48MHZ == 0
+set_pwm_limit_initial_run:
+	mov	Pwm_Limit_By_Rpm, Pwm_Limit_Beg
+	ret
+	ENDIF
 
 
 ;**** **** **** **** **** **** **** **** **** **** **** **** ****
@@ -3074,6 +3106,40 @@ dshot_tlm_create_packet:
 	mov	Tlm_Data_H, Comm_Period4x_H
 	setb	IE_EA
 
+	IF ESCNO >= 24 AND ESCNO <= 25 AND MCU_48MHZ == 0
+	; On BB10 Timer2 ticks are about 489 ns, not exactly 500 ns.
+	; Backport the v0.19 e-period correction for this DShot target.
+	mov	A, Tlm_Data_L
+	mov	C, Tlm_Data_H.0
+	rrc	A
+	mov	Temp2, A
+	mov	C, Tlm_Data_H.1
+	rrc	A
+	add	A, Temp2
+	mov	Temp3, A
+
+	mov	A, Tlm_Data_H
+	rr	A
+	clr	ACC.7
+	mov	Temp2, A
+	rr	A
+	clr	ACC.7
+	addc	A, Temp2
+	mov	Temp4, A
+
+	mov	A, Tlm_Data_H
+	rl	A
+	rl	A
+	anl	A, #0FCh
+	mov	Temp5, A
+	clr	C
+	mov	A, Temp3
+	subb	A, Temp5
+	mov	Tlm_Data_L, A
+	mov	A, Temp4
+	subb	A, #0
+	mov	Tlm_Data_H, A
+	ELSE
 	; Multiply period by 3/4 (1/2 + 1/4)
 	mov	A, Tlm_Data_L
 	mov	C, Tlm_Data_H.0
@@ -3092,6 +3158,7 @@ dshot_tlm_create_packet:
 	clr	ACC.7
 	addc	A, Temp2
 	mov	Tlm_Data_H, A
+	ENDIF
 
 dshot_tlm_ready:
 	Early_Return_Packet_Stage 1
@@ -4327,11 +4394,16 @@ run6:
 	sjmp	exit_run_mode
 
 startup_phase_done:
+	IF ESCNO >= 24 AND ESCNO <= 25 AND MCU_48MHZ == 0
+	; Initial run is still active. Do not lift the startup power ceiling yet.
+	clr	Flag_Startup_Phase
+	ELSE
 	; Clear startup phase flag & remove pwm limits
 	clr	Flag_Startup_Phase
-	mov	Pwm_Limit, #255					; Reset temperature level pwm limit
+	mov	Pwm_Limit, #255
 	mov	Pwm_Limit_By_Rpm, #255
-	mov	Temp_Pwm_Level_Setpoint, #255	; Reset temperature level setpoint
+	mov	Temp_Pwm_Level_Setpoint, #255
+	ENDIF
 
 initial_run_phase:
 	; If it is a direction change - branch
@@ -4352,6 +4424,11 @@ initial_run_phase:
 
 initial_run_phase_done:
 	clr	Flag_Initial_Run_Phase		; Clear initial run phase flag
+	IF ESCNO >= 24 AND ESCNO <= 25 AND MCU_48MHZ == 0
+	mov	Pwm_Limit, #255					; Release startup ceiling after initial run
+	mov	Pwm_Limit_By_Rpm, #255
+	mov	Temp_Pwm_Level_Setpoint, #255
+	ENDIF
 	setb	Flag_Motor_Started			; Set motor started
 	jmp	run1						; Continue with normal run
 
